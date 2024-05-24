@@ -19,13 +19,23 @@ end
 # ╔═╡ fd367c60-1e52-4099-92c6-0c62f074fd13
 begin
 	h = 0.2
+	# thermal
 	λ = 5
-	
+	# mechanical
+	E = 1000
+	ν = 0.3
+	# coupling
+	α_θ = 1.7e-4
+	θ_ref = 20
+	(;h,λ,E,ν,α_θ,θ_ref)
 end
 
 # ╔═╡ 8431fb3f-d2c0-4f89-a24b-e36dadd0b52e
 begin
+	# constitutive matrices
 	Λ = [λ 0;0 λ]
+	C = (E/(1-ν^2)) * [1 ν 0;ν 1 0; 0 0 (1-ν)/2]
+	(;Λ, C)
 end
 
 # ╔═╡ 249f3851-501b-4a65-ab14-b4ddae80816e
@@ -141,7 +151,72 @@ md""" ### 2. Mechanical Problem
 """
 
 # ╔═╡ df44be7d-3957-4bbc-b244-06d50384b0bc
+function getmechB(dNdx)
+	cols = size(dNdx)[2]
+	B = zeros(3,cols*2)
+	for i = 1:cols
+		x_dof = dNdx[1,i]
+		y_dof = dNdx[2,i]
+		odd = 2*(i-1) + 1
+		even = 2*(i-1) + 2
+		B[1,odd] = x_dof
+		B[2,even] = y_dof
+		B[3,odd] = y_dof
+		B[3,even] = x_dof
+	end
+	B
+end
 
+# ╔═╡ 0d49f37b-dee6-4f11-b4d3-b3d23e9c9d18
+function getKuu(ip::IntegrationPoint)
+	ξ = ip.ξ
+	w_x = ip.w_x
+	w_y = ip.w_y
+	dNdξ = shape_gradient(ξ)
+	jacob = getjacobian(ξ)
+	dNdx = jacob.invJ * dNdξ
+	B = getmechB(dNdx)
+	return w_x * w_y * B' * C * B *h* jacob.detJ
+end
+
+# ╔═╡ daff82c9-610b-4b12-b5f5-4ab0a971be6e
+function solve_mechanical()
+	K = map(ip -> getKuu(ip),ips) |> sum
+	R = [0.0,0.0,0.0, -10.0]
+	u_r = [0.0, 0.0,0.0,0.0]
+	K_uu = K[5:end,5:end]
+	u_u  = inv(K_uu) * (R)
+	return [u_r; u_u]
+end
+
+# ╔═╡ f1956fa0-9011-4b36-878e-b3ac70273f8d
+md"""#### 2.1. Results from Julia
+
+"""
+
+# ╔═╡ d6e1784c-0616-4461-bc6a-9acb8eb0d510
+solve_mechanical()
+
+# ╔═╡ d6f22c0f-5d4a-46ae-b860-25399635b02b
+md"""#### 2.2. Results from Abaqus
+
+"""
+
+# ╔═╡ 080008b6-b3ce-4613-a297-3dac649bbc1a
+md"""##### 2.2.1. U1
+
+"""
+
+# ╔═╡ 523d0122-a34e-4222-9409-9e6e6167551b
+load("./Resources/mech_u1.png")
+
+# ╔═╡ 6ec444b3-d914-4cf3-9122-89d42cb1867e
+md"""##### 2.2.2. U2 
+
+"""
+
+# ╔═╡ 0b25bb02-e4c4-49ed-a37e-1faecf183e75
+load("./Resources/mech_u2.png")
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1330,5 +1405,14 @@ version = "17.4.0+2"
 # ╟─c7bf86ab-7d61-4ca1-84fe-964937c78eca
 # ╟─d2081d2a-e795-4ca5-a51a-da3da200370b
 # ╠═df44be7d-3957-4bbc-b244-06d50384b0bc
+# ╠═0d49f37b-dee6-4f11-b4d3-b3d23e9c9d18
+# ╠═daff82c9-610b-4b12-b5f5-4ab0a971be6e
+# ╟─f1956fa0-9011-4b36-878e-b3ac70273f8d
+# ╠═d6e1784c-0616-4461-bc6a-9acb8eb0d510
+# ╟─d6f22c0f-5d4a-46ae-b860-25399635b02b
+# ╟─080008b6-b3ce-4613-a297-3dac649bbc1a
+# ╟─523d0122-a34e-4222-9409-9e6e6167551b
+# ╟─6ec444b3-d914-4cf3-9122-89d42cb1867e
+# ╟─0b25bb02-e4c4-49ed-a37e-1faecf183e75
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
