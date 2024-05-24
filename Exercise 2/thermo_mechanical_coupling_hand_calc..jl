@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.3
+# v0.19.41
 
 using Markdown
 using InteractiveUtils
@@ -66,7 +66,7 @@ function shape_function(ξ::Vec{2,Float64})
 	N₂ = 0.25 * (1+ξ₁) * (1-ξ₂)
 	N₃ = 0.25 * (1+ξ₁) * (1+ξ₂)
 	N₄ = 0.25 * (1-ξ₁) * (1+ξ₂)
-	[N₁,N₂,N₃,N₄]
+	[N₁ N₂ N₃ N₄]
 end
 
 # ╔═╡ 931cfcd7-7c95-4ab2-a86b-0a081e65c9e0
@@ -217,6 +217,64 @@ md"""##### 2.2.2. U2
 
 # ╔═╡ 0b25bb02-e4c4-49ed-a37e-1faecf183e75
 load("./Resources/mech_u2.png")
+
+# ╔═╡ f9fdfba4-cae7-4859-a478-28183a702008
+md""" ### 3. Coupling Problem
+
+"""
+
+# ╔═╡ c17d4446-0940-44a3-a438-599ae7c5648a
+function getKuθ(ip::IntegrationPoint)
+	ξ = ip.ξ
+	w_x = ip.w_x
+	w_y = ip.w_y
+	dNdξ = shape_gradient(ξ)
+	jacob = getjacobian(ξ)
+	dNdx = jacob.invJ * dNdξ
+	B = getmechB(dNdx)
+	N = shape_function(ξ)
+	I = [1; 1;0 ]
+	return w_x*w_y*B'* C* α_θ * I * N * h * jacob.detJ
+end
+
+# ╔═╡ 5372ab66-7faf-4863-988b-e52c99ea3e3d
+function solve_coupling()
+	θ = solve_thermal()
+	K = map(ip -> getKuu(ip),ips) |> sum
+	K_uu = K[5:end,5:end]
+	K_uθ = map(ip -> getKuθ(ip),ips) |> sum
+	R_u = [0.0,0.0,0.0, -10.0]
+	u_r = [0.0, 0.0,0.0,0.0]
+	u_u = inv(K_uu) * (R_u + K_uθ[5:end,:]*(θ - fill(θ_ref,4)))
+	return [u_r ; u_u]
+end	
+
+# ╔═╡ c2ecce15-ec58-48cb-9764-18a008eecd68
+md""" #### 3.1. Results from Julia
+
+"""
+
+# ╔═╡ 596bc29d-f5f2-483a-9893-61ea5cb58b3b
+solve_coupling()
+
+# ╔═╡ 1cc81bfc-2795-4371-a77e-9280f0d068eb
+md""" #### 3.2. results from Abaqus
+
+"""
+
+# ╔═╡ 9535d056-d91b-4944-9148-5abad733a4bc
+md"""##### 3.2.1. U1
+"""
+
+# ╔═╡ 5dc13c79-c5a9-457b-99fb-32dfd96f942e
+load("./Resources/coupling_u1.png")
+
+# ╔═╡ 1caadfa6-5f26-4503-9b0f-182d725d8c62
+md"""##### 3.2.2. U2
+"""
+
+# ╔═╡ f4e1536c-6054-46b6-8b92-bbd6d1b67e69
+load("./Resources/coupling_u2.png")
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1414,5 +1472,15 @@ version = "17.4.0+2"
 # ╟─523d0122-a34e-4222-9409-9e6e6167551b
 # ╟─6ec444b3-d914-4cf3-9122-89d42cb1867e
 # ╟─0b25bb02-e4c4-49ed-a37e-1faecf183e75
+# ╟─f9fdfba4-cae7-4859-a478-28183a702008
+# ╠═c17d4446-0940-44a3-a438-599ae7c5648a
+# ╠═5372ab66-7faf-4863-988b-e52c99ea3e3d
+# ╟─c2ecce15-ec58-48cb-9764-18a008eecd68
+# ╠═596bc29d-f5f2-483a-9893-61ea5cb58b3b
+# ╟─1cc81bfc-2795-4371-a77e-9280f0d068eb
+# ╟─9535d056-d91b-4944-9148-5abad733a4bc
+# ╟─5dc13c79-c5a9-457b-99fb-32dfd96f942e
+# ╟─1caadfa6-5f26-4503-9b0f-182d725d8c62
+# ╟─f4e1536c-6054-46b6-8b92-bbd6d1b67e69
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
