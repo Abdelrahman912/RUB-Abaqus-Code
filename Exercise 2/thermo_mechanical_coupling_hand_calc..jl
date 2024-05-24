@@ -16,8 +16,104 @@ begin
 	img = load(img_path)
 end
 
+# ╔═╡ fd367c60-1e52-4099-92c6-0c62f074fd13
+begin
+	λ = 5
+end
+
+# ╔═╡ 8431fb3f-d2c0-4f89-a24b-e36dadd0b52e
+begin
+	Λ = [λ 0;0 λ]
+end
+
+# ╔═╡ 249f3851-501b-4a65-ab14-b4ddae80816e
+xe = [0 0; 1 0; 1 1; 0 1]
+
+# ╔═╡ d77c473a-51e1-426c-a808-866e5b386de3
+begin
+	ip1 = Vec(-1/sqrt(3),1/sqrt(3))
+	w1 = 1.0 
+	(;ip1,w1)
+end
+
 # ╔═╡ 5c0d9dd9-ff14-4562-8208-9bb38b8d1ed2
-x=5
+function shape_function(ξ::Vec{2})
+	ξ₁ = ξ[1]
+	ξ₂ = ξ[2]
+	N₁ = 0.25 * (1-ξ₁) * (1-ξ₂)
+	N₂ = 0.25 * (1+ξ₁) * (1-ξ₂)
+	N₃ = 0.25 * (1+ξ₁) * (1+ξ₂)
+	N₄ = 0.25 * (1-ξ₁) * (1+ξ₂)
+	[N₁,N₂,N₃,N₄]
+end
+
+# ╔═╡ 931cfcd7-7c95-4ab2-a86b-0a081e65c9e0
+function shape_gradient(ξ::Vec{2})
+	ξ_1 = ξ[1]
+	ξ_2 = ξ[2]
+	dN11 = -0.25 * (1 - ξ_2)
+	dN21 = 0.25 * (1 - ξ_2)
+	dN31 = 0.25 * (1 + ξ_2)
+	dN41 = -0.25 * (1 + ξ_2)
+
+	dN12 = -0.25 * (1 - ξ_1)
+	dN22 = -0.25 * (1 + ξ_1)
+	dN32 = 0.25 * (1 + ξ_1)
+	dN42 = 0.25 * (1 - ξ_1)
+
+	[dN11 dN21 dN31 dN41; dN12 dN22 dN32 dN42]
+end
+
+# ╔═╡ be88ed0d-dd46-4d95-8a4d-a2db1352ac59
+struct Jacobian
+	J::Matrix
+	invJ::Matrix
+	detJ::Float64
+end
+
+# ╔═╡ 646e5e11-0971-48ee-80a7-053f83a4598d
+function getjacobian(ip::Vec{2})
+	J = shape_gradient(ip) * xe
+	invJ = inv(J)
+	detJ = det(J)
+	Jacobian(J,invJ,detJ)
+end
+
+# ╔═╡ bd0b64d2-2e4a-4e8f-a0ac-5cfcbd33b9ad
+function getKθθ(ip::Vec{2},w_x::Float64,w_y::Float64)
+	dN = shape_gradient(ip)
+	jacob = getjacobian(ip)
+	return w_x * w_y * dN' * Λ * dN * jacob.detJ
+end
+
+# ╔═╡ ffcdea3b-d66e-4492-8ed6-5bc209df750b
+jacob = getjacobian(ip1)
+
+# ╔═╡ 576eab84-e72d-4490-9106-61b52a2b92fc
+function solve_thermal()
+	K = 4 * getKθθ(ip1,w1,w1)
+	R = [5.0,  0.0]
+	θ_r = [50.0, 50.0]
+	K_uu = K[3:end,3:end]
+	K_ur = K[3:end, 1:2]
+
+	θ_u  = inv(K_uu) * (R - K_ur * θ_r)
+	return [θ_r; θ_u]
+end
+
+# ╔═╡ b181523d-7394-4ef3-92c4-1a433dac78fa
+solve_thermal()
+
+# ╔═╡ 91a923db-105b-4828-afce-d14e33d28a12
+md"""#### Results from Abaqus:
+
+"""
+
+# ╔═╡ c7bf86ab-7d61-4ca1-84fe-964937c78eca
+load("./Resources/thermal_abaqus.png")
+
+# ╔═╡ d2081d2a-e795-4ca5-a51a-da3da200370b
+
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -1187,7 +1283,21 @@ version = "17.4.0+2"
 
 # ╔═╡ Cell order:
 # ╠═2db20f8a-e840-48e4-be00-1f9e0bc93422
-# ╠═1636152f-4e96-4d01-9273-e9b06f8ba522
+# ╟─1636152f-4e96-4d01-9273-e9b06f8ba522
+# ╠═fd367c60-1e52-4099-92c6-0c62f074fd13
+# ╠═8431fb3f-d2c0-4f89-a24b-e36dadd0b52e
+# ╠═249f3851-501b-4a65-ab14-b4ddae80816e
+# ╠═d77c473a-51e1-426c-a808-866e5b386de3
 # ╠═5c0d9dd9-ff14-4562-8208-9bb38b8d1ed2
+# ╠═931cfcd7-7c95-4ab2-a86b-0a081e65c9e0
+# ╠═be88ed0d-dd46-4d95-8a4d-a2db1352ac59
+# ╠═646e5e11-0971-48ee-80a7-053f83a4598d
+# ╠═bd0b64d2-2e4a-4e8f-a0ac-5cfcbd33b9ad
+# ╠═ffcdea3b-d66e-4492-8ed6-5bc209df750b
+# ╠═576eab84-e72d-4490-9106-61b52a2b92fc
+# ╠═b181523d-7394-4ef3-92c4-1a433dac78fa
+# ╟─91a923db-105b-4828-afce-d14e33d28a12
+# ╟─c7bf86ab-7d61-4ca1-84fe-964937c78eca
+# ╠═d2081d2a-e795-4ca5-a51a-da3da200370b
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
