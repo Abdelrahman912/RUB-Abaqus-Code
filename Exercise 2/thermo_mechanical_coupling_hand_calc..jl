@@ -18,7 +18,9 @@ end
 
 # ╔═╡ fd367c60-1e52-4099-92c6-0c62f074fd13
 begin
+	h = 0.2
 	λ = 5
+	
 end
 
 # ╔═╡ 8431fb3f-d2c0-4f89-a24b-e36dadd0b52e
@@ -29,15 +31,25 @@ end
 # ╔═╡ 249f3851-501b-4a65-ab14-b4ddae80816e
 xe = [0 0; 1 0; 1 1; 0 1]
 
+# ╔═╡ 37b90dc1-06c1-4f91-a605-8d918cd17521
+struct IntegrationPoint
+	ξ::Vec{2}
+	w_x::Float64
+	w_y::Float64
+end
+
 # ╔═╡ d77c473a-51e1-426c-a808-866e5b386de3
 begin
-	ip1 = Vec(-1/sqrt(3),1/sqrt(3))
-	w1 = 1.0 
-	(;ip1,w1)
+	ip1 = IntegrationPoint(Vec(-1/sqrt(3),-1/sqrt(3)),1.0,1.0)
+	ip2 = IntegrationPoint(Vec(1/sqrt(3),-1/sqrt(3)),1.0,1.0)
+	ip3 = IntegrationPoint(Vec(1/sqrt(3),1/sqrt(3)),1.0,1.0)
+	ip4 = IntegrationPoint(Vec(-1/sqrt(3),1/sqrt(3)),1.0,1.0)
+	ips = [ip1,ip2,ip3,ip4]
+	(;ip1,ip2,ip3,ip4)
 end
 
 # ╔═╡ 5c0d9dd9-ff14-4562-8208-9bb38b8d1ed2
-function shape_function(ξ::Vec{2})
+function shape_function(ξ::Vec{2,Float64})
 	ξ₁ = ξ[1]
 	ξ₂ = ξ[2]
 	N₁ = 0.25 * (1-ξ₁) * (1-ξ₂)
@@ -72,26 +84,32 @@ struct Jacobian
 end
 
 # ╔═╡ 646e5e11-0971-48ee-80a7-053f83a4598d
-function getjacobian(ip::Vec{2})
-	J = shape_gradient(ip) * xe
+function getjacobian(ξ::Vec{2})
+	J = shape_gradient(ξ) * xe
 	invJ = inv(J)
 	detJ = det(J)
 	Jacobian(J,invJ,detJ)
 end
 
 # ╔═╡ bd0b64d2-2e4a-4e8f-a0ac-5cfcbd33b9ad
-function getKθθ(ip::Vec{2},w_x::Float64,w_y::Float64)
-	dN = shape_gradient(ip)
-	jacob = getjacobian(ip)
-	return w_x * w_y * dN' * Λ * dN * jacob.detJ
+function getKθθ(ip::IntegrationPoint)
+	ξ = ip.ξ
+	w_x = ip.w_x
+	w_y = ip.w_y
+	dNdξ = shape_gradient(ξ)
+	jacob = getjacobian(ξ)
+	dNdx = jacob.invJ * dNdξ
+	return w_x * w_y * dNdx' * Λ * dNdx *h* jacob.detJ
 end
 
-# ╔═╡ ffcdea3b-d66e-4492-8ed6-5bc209df750b
-jacob = getjacobian(ip1)
+# ╔═╡ 02efb239-6a05-4833-ba75-0541456becbf
+md"""### 1. Thermal Problem:
+
+"""
 
 # ╔═╡ 576eab84-e72d-4490-9106-61b52a2b92fc
 function solve_thermal()
-	K = 4 * getKθθ(ip1,w1,w1)
+	K = map(ip -> getKθθ(ip),ips) |> sum
 	R = [5.0,  0.0]
 	θ_r = [50.0, 50.0]
 	K_uu = K[3:end,3:end]
@@ -101,11 +119,16 @@ function solve_thermal()
 	return [θ_r; θ_u]
 end
 
+# ╔═╡ e4a21171-46b6-4994-8ed1-f994b7b22c5a
+md""" #### 1.1. Results from Julia
+
+"""
+
 # ╔═╡ b181523d-7394-4ef3-92c4-1a433dac78fa
 solve_thermal()
 
 # ╔═╡ 91a923db-105b-4828-afce-d14e33d28a12
-md"""#### Results from Abaqus:
+md"""#### 1.2. Results from Abaqus:
 
 """
 
@@ -113,6 +136,11 @@ md"""#### Results from Abaqus:
 load("./Resources/thermal_abaqus.png")
 
 # ╔═╡ d2081d2a-e795-4ca5-a51a-da3da200370b
+md""" ### 2. Mechanical Problem
+
+"""
+
+# ╔═╡ df44be7d-3957-4bbc-b244-06d50384b0bc
 
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -1287,17 +1315,20 @@ version = "17.4.0+2"
 # ╠═fd367c60-1e52-4099-92c6-0c62f074fd13
 # ╠═8431fb3f-d2c0-4f89-a24b-e36dadd0b52e
 # ╠═249f3851-501b-4a65-ab14-b4ddae80816e
+# ╠═37b90dc1-06c1-4f91-a605-8d918cd17521
 # ╠═d77c473a-51e1-426c-a808-866e5b386de3
 # ╠═5c0d9dd9-ff14-4562-8208-9bb38b8d1ed2
 # ╠═931cfcd7-7c95-4ab2-a86b-0a081e65c9e0
 # ╠═be88ed0d-dd46-4d95-8a4d-a2db1352ac59
 # ╠═646e5e11-0971-48ee-80a7-053f83a4598d
 # ╠═bd0b64d2-2e4a-4e8f-a0ac-5cfcbd33b9ad
-# ╠═ffcdea3b-d66e-4492-8ed6-5bc209df750b
+# ╟─02efb239-6a05-4833-ba75-0541456becbf
 # ╠═576eab84-e72d-4490-9106-61b52a2b92fc
+# ╟─e4a21171-46b6-4994-8ed1-f994b7b22c5a
 # ╠═b181523d-7394-4ef3-92c4-1a433dac78fa
 # ╟─91a923db-105b-4828-afce-d14e33d28a12
 # ╟─c7bf86ab-7d61-4ca1-84fe-964937c78eca
-# ╠═d2081d2a-e795-4ca5-a51a-da3da200370b
+# ╟─d2081d2a-e795-4ca5-a51a-da3da200370b
+# ╠═df44be7d-3957-4bbc-b244-06d50384b0bc
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
